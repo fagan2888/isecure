@@ -36,42 +36,47 @@ public class CameraUtil {
     private static final int MAX_PREVIEW_WIDTH = 1920;
     private static final int MAX_PREVIEW_HEIGHT = 1080;
 
-    private final Activity activity;
-    private CameraManager manager;
+    private final Activity mActivity;
+    private final CameraView mCameraView;
 
-    private Integer mSensorOrientation;
-    private Integer mDisplayOrientation;
+    private CameraManager mCameraManager;
+    private String mCameraId;
+    private CameraCharacteristics mCameraCharacteristics;
+    private StreamConfigurationMap mConfigMap;
     private Size mOverlaySize;
     private Size mPreviewSize;
-    private StreamConfigurationMap mConfigMap;
     private Size mLargestSize;
+    private Integer mSensorOrientation;
+    private Integer mDisplayOrientation;
+
     private CameraDevice mCameraDevice;
     private CaptureRequest.Builder mPreviewRequestBuilder;
     private CameraCaptureSession mCaptureSession;
     private CaptureRequest mPreviewRequest;
-    private String mCameraId;
 
-    public CameraUtil(Activity activity) {
-        this.activity = activity;
+
+    public CameraUtil(Activity activity, CameraView cameraView) {
+        mActivity = activity;
+        mCameraView = cameraView;
         init();
     }
 
-    public void init() {
-        manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
+    private void init() {
+        mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
 
         try {
-            for (String cameraId : manager.getCameraIdList()) {
+            for (String cameraId : mCameraManager.getCameraIdList()) {
                 mCameraId = cameraId;
-                CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-                if (characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT)
+                mCameraCharacteristics = mCameraManager.getCameraCharacteristics(cameraId);
+                if (mCameraCharacteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT)
                     continue;
-                mConfigMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                mConfigMap = mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                 if (mConfigMap == null)
                     continue;
 
                 mOverlaySize = mConfigMap.getOutputSizes(SurfaceTexture.class)[0];
-                mDisplayOrientation = activity.getWindowManager().getDefaultDisplay().getRotation();
-                mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+                mDisplayOrientation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+                mSensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                 mLargestSize = Collections.max(Arrays.asList(mConfigMap.getOutputSizes(ImageFormat.JPEG)), new CompareSizesByArea());
                 break;
             }
@@ -80,9 +85,9 @@ public class CameraUtil {
         }
     }
 
-    public void setupCamera(CameraView cameraView, int viewWidth, int viewHeight) {
+    public void setupCamera(int viewWidth, int viewHeight) {
         Point displaySize = new Point();
-        activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
+        mActivity.getWindowManager().getDefaultDisplay().getSize(displaySize);
         int rotatedPreviewWidth = viewWidth;
         int rotatedPreviewHeight = viewHeight;
         int maxPreviewWidth = displaySize.x;
@@ -103,15 +108,15 @@ public class CameraUtil {
                 maxPreviewHeight, mLargestSize);
 
 
-        if (activity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            cameraView.setAspectRatio(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        if (mActivity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            mCameraView.setAspectRatio(mPreviewSize.getWidth(), mPreviewSize.getHeight());
         } else {
-            cameraView.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
+            mCameraView.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
         }
     }
 
     public void configTransform(CameraView cameraView, int viewWidth, int viewHeight) {
-        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
         Matrix matrix = new Matrix();
         RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
         RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
@@ -189,9 +194,9 @@ public class CameraUtil {
     }
 
     public void openCamera(CameraDevice.StateCallback mStateCallback, Handler mBackgroundHandler) throws CameraAccessException {
-        if (activity.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+        if (mActivity.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
             return;
-        manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
+        mCameraManager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
     }
 
     public void closeCamera() {
