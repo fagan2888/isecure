@@ -40,13 +40,13 @@ public class CameraFragment extends Fragment {
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mCameraUtil = new CameraUtil(getActivity(), getActivity().findViewById(R.id.camera_view), getActivity().findViewById(R.id.overlay_view));
+        mCameraUtil = new CameraUtil(getActivity(), getView().findViewById(R.id.camera_view), getView().findViewById(R.id.overlay_view), getView().findViewById(R.id.card), getView());
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        view.findViewById(R.id.button).setOnClickListener(new View.OnClickListener() {
+        view.findViewById(R.id.push_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Log.d(TAG, "ON CLICK");
@@ -92,6 +92,4 @@ public class CameraFragment extends Fragment {
         super.onPause();
         mCameraUtil.pause();
     }
-
-
 }

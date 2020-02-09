@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
@@ -21,9 +23,12 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.Face;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaActionSound;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Base64;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
@@ -33,8 +38,15 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
+import com.google.android.gms.vision.face.FaceDetector;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,20 +55,25 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
+
 public class CameraUtil {
 
     private static final String TAG = CameraUtil.class.getName();
 
     private static final int MAX_PREVIEW_WIDTH = 1920;
     private static final int MAX_PREVIEW_HEIGHT = 1080;
-
-    private static final int STATE_PREVIEW = 0;
-    private static final int STATE_WAITING_LOCK = 1;
-    private static final int STATE_WAITING_PRECAPTURE = 2;
-    private static final int STATE_WAITING_NON_PRECAPTURE = 3;
-    private static final int STATE_PICTURE_TAKEN = 4;
-
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
+    public static final String URL = "http://192.168.1.101:5000/id";
 
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
@@ -65,6 +82,14 @@ public class CameraUtil {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
+    private static final int STATE_PREVIEW = 0;
+    private static final int STATE_WAITING_LOCK = 1;
+    private static final int STATE_WAITING_PRECAPTURE = 2;
+    private static final int STATE_WAITING_NON_PRECAPTURE = 3;
+    private static final int STATE_PICTURE_TAKEN = 4;
+    private final CardView mCardView;
+
+    private FaceDetector detector;
 
     private final Activity mActivity;
     private final CameraView mCameraView;
@@ -72,7 +97,6 @@ public class CameraUtil {
 
     private CameraManager mCameraManager;
     private String mCameraId;
-    private CameraCharacteristics mCameraCharacteristics;
     private StreamConfigurationMap mConfigMap;
     private Size mOverlaySize;
     private Size mPreviewSize;
@@ -90,7 +114,7 @@ public class CameraUtil {
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
-//    private ImageReader mImageReader;
+    private ImageReader mImageReader;
 
 
     private final Semaphore mCameraOpenCloseLock = new Semaphore(1);
@@ -124,60 +148,55 @@ public class CameraUtil {
     private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
 
         private void process(CaptureResult result) {
-//            switch (mState) {
-//                case STATE_PREVIEW: {
-                    // We have nothing to do when the camera preview is working normally.
+            switch (mState) {
+                case STATE_PREVIEW: {
                     Integer mode = result.get(CaptureResult.STATISTICS_FACE_DETECT_MODE);
                     Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
-
                     if (faces != null && mode != null) {
-//                        Log.e("FACE", "detected: " + faces.length);
                         mOverlayView.updateFace(faces);
-
-//                        if (mOverlayView.isCapturePossible())
-//                            mPushButon.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.button_bg_round_enabled));
-//                        else
-//                            mPushButon.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.button_bg_round_disabled));
-//                    }
-//                    break;
-//                }
-//                case STATE_WAITING_LOCK: {
-//                    Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
-//                    if (afState == null) {
-//                        captureStillPicture();
-//                    } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
-//                            CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
-//                        // CONTROL_AE_STATE can be null on some devices
-//                        Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-//                        if (aeState == null ||
-//                                aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
-//                            mState = STATE_PICTURE_TAKEN;
-//                            captureStillPicture();
-//                        } else {
-//                            runPrecaptureSequence();
-//                        }
-//                    }
-//                    break;
-//                }
-//                case STATE_WAITING_PRECAPTURE: {
-//                    // CONTROL_AE_STATE can be null on some devices
-//                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-//                    if (aeState == null ||
-//                            aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
-//                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
-//                        mState = STATE_WAITING_NON_PRECAPTURE;
-//                    }
-//                    break;
-//                }
-//                case STATE_WAITING_NON_PRECAPTURE: {
-//                    // CONTROL_AE_STATE can be null on some devices
-//                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-//                    if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
-//                        mState = STATE_PICTURE_TAKEN;
-//                        captureStillPicture();
-//                    }
-//                    break;
-//                }
+                        mActivity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (mView != null)
+                                    if (mOverlayView.isCapturePossible())
+                                        mView.findViewById(R.id.push_button).setBackground(ContextCompat.getDrawable(mActivity.getApplicationContext(), R.drawable.button_bg_round_enabled));
+                                    else
+                                        mView.findViewById(R.id.push_button).setBackground(ContextCompat.getDrawable(mActivity.getApplicationContext(), R.drawable.button_bg_round_disabled));
+                            }
+                        });
+                    }
+                    break;
+                }
+                case STATE_WAITING_LOCK: {
+                    Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+                    if (afState == null) {
+                        captureStillPicture();
+                    } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState || CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
+                        Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                        if (null == aeState || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
+                            mState = STATE_PICTURE_TAKEN;
+                            captureStillPicture();
+                        } else {
+                            runPrecaptureSequence();
+                        }
+                    }
+                    break;
+                }
+                case STATE_WAITING_PRECAPTURE: {
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE || aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                        mState = STATE_WAITING_NON_PRECAPTURE;
+                    }
+                    break;
+                }
+                case STATE_WAITING_NON_PRECAPTURE: {
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
+                        mState = STATE_PICTURE_TAKEN;
+                        captureStillPicture();
+                    }
+                    break;
+                }
             }
         }
 
@@ -227,42 +246,93 @@ public class CameraUtil {
             }
         }
     };
-//    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener
-//            = new ImageReader.OnImageAvailableListener() {
-//
-//        @Override
-//        public void onImageAvailable(ImageReader reader) {
-//            mBackgroundHandler.post(new Runnable() {
-//                @Override
-//                public void run() {
-//
-//                }
-//            });
-//        }
-//
-//    };
-//
-//    private int mState;
+    private final ImageReader.OnImageAvailableListener mOnImageAvailableListener = new ImageReader.OnImageAvailableListener() {
+
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            mBackgroundHandler.post(() -> {
+                Image mImage = reader.acquireNextImage();
+                try {
+                    ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
+                    byte[] bytes = new byte[buffer.remaining()];
+                    buffer.get(bytes);
+                    Bitmap bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+                    bmp = getResizedBitmap(bmp, 1024);
+                    bmp = rotateBitmap(bmp, mSensorOrientation);
+//                    mCapturedBitmap = FaceRecognizer.cropFace(detector, bmp);
 
 
-    public CameraUtil(Activity activity, CameraView cameraView) {
-        this(activity, cameraView, null);
-    }
+                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                    byte[] byteArray = stream.toByteArray();
+                    String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
 
-    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView) {
+                    HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+                    logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
+
+                    OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
+
+//                    RequestBody requestBody = new MultipartBody.Builder()
+//                            .setType(MultipartBody.FORM)
+//                            .addFormDataPart("", "",
+//                                    RequestBody.create(MediaType.parse("image/*"), encodedImage))
+//                            .build();
+
+                    RequestBody requestBody = RequestBody
+                            .create(MediaType.parse("application/octet-stream"), byteArray);
+
+                    Request request = new Request.Builder()
+                            .url(URL)
+                            .post(requestBody)
+                            .build();
+
+                    client.newCall(request).enqueue(new Callback() {
+                        @Override
+                        public void onFailure(Call call, IOException e) {
+
+                        }
+
+                        @Override
+                        public void onResponse(Call call, Response response) throws IOException {
+                            Log.d(TAG, response.body().string());
+                        }
+                    });
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                } finally {
+                    mImage.close();
+                }
+            });
+        }
+    };
+
+    private int mState;
+    private Bitmap mCapturedBitmap;
+    private View mView;
+
+
+    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, CardView cardView, View view) {
         mActivity = activity;
         mCameraView = cameraView;
         mOverlayView = overlayView;
+        mView = view;
+        mCardView = cardView;
         init();
     }
 
     private void init() {
         mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+        detector = new FaceDetector.Builder(mActivity.getApplicationContext())
+                .setTrackingEnabled(false)
+                .setLandmarkType(FaceDetector.ALL_LANDMARKS)
+                .setMode(FaceDetector.FAST_MODE)
+                .build();
 
         try {
             for (String cameraId : mCameraManager.getCameraIdList()) {
                 mCameraId = cameraId;
-                mCameraCharacteristics = mCameraManager.getCameraCharacteristics(cameraId);
+                CameraCharacteristics mCameraCharacteristics = mCameraManager.getCameraCharacteristics(cameraId);
                 if (mCameraCharacteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT)
                     continue;
                 mConfigMap = mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -273,9 +343,6 @@ public class CameraUtil {
                 mDisplayOrientation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
                 mSensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
                 mLargestSize = Collections.max(Arrays.asList(mConfigMap.getOutputSizes(ImageFormat.JPEG)), new CompareSizesByArea());
-
-//                mImageReader = ImageReader.newInstance(mLargestSize.getWidth(), mLargestSize.getHeight(), ImageFormat.JPEG, /*maxImages*/2);
-//                mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
 
                 break;
             }
@@ -336,7 +403,11 @@ public class CameraUtil {
 
     private void setupOverlay() {
         if (mOverlayView != null) {
-            ViewGroup.LayoutParams params = mOverlayView.getLayoutParams();
+
+            ViewGroup.LayoutParams params = mCardView.getLayoutParams();
+            params.height = mOverlayView.getHeight();
+            mCardView.setLayoutParams(params);
+            params = mOverlayView.getLayoutParams();
             params.width = mPreviewSize.getHeight();
             params.height = mPreviewSize.getWidth();
             mOverlayView.setLayoutParams(params);
@@ -352,11 +423,13 @@ public class CameraUtil {
         texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
         Surface surface = new Surface(texture);
 
+        mImageReader = ImageReader.newInstance(mLargestSize.getWidth(), mLargestSize.getHeight(), ImageFormat.JPEG, /*maxImages*/2);
+        mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mBackgroundHandler);
+
         mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         mPreviewRequestBuilder.addTarget(surface);
 
-        mCameraDevice.createCaptureSession(Arrays.asList(surface/*, mImageReader.getSurface()*/),
-                new CameraCaptureSession.StateCallback() {
+        mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()), new CameraCaptureSession.StateCallback() {
 
                     @Override
                     public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
@@ -417,6 +490,10 @@ public class CameraUtil {
                 mCameraDevice.close();
                 mCameraDevice = null;
             }
+            if (mImageReader != null) {
+                mImageReader.close();
+                mImageReader = null;
+            }
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
         } finally {
@@ -425,6 +502,10 @@ public class CameraUtil {
     }
 
     protected void resume() {
+        mBackgroundThread = new HandlerThread("CameraBackground");
+        mBackgroundThread.start();
+        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+
         if (mCameraView.isAvailable()) {
             openCamera();
         } else {
@@ -434,74 +515,95 @@ public class CameraUtil {
 
     protected void pause() {
         closeCamera();
+        mBackgroundThread.quitSafely();
+        try {
+            mBackgroundThread.join();
+            mBackgroundThread = null;
+            mBackgroundHandler = null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void clickPicture() {
         Log.d(TAG, "ON CLICK");
-//        lockFocus();
+        if (mOverlayView.isCapturePossible()) {
+            shootSound();
+            lockFocus();
+        }
+
     }
 
-//    private void lockFocus() {
-//        try {
-//            // This is how to tell the camera to lock focus.
-//            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
-//            // Tell #mCaptureCallback to wait for the lock.
-//            mState = STATE_WAITING_LOCK;
-//            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
-//        } catch (CameraAccessException e) {
-////            e.printStackTrace();
-//        }
-//    }
-//
-//    private void captureStillPicture() {
-//        try {
-//            if (mCameraDevice == null)
-//                return;
-//
-//            final CaptureRequest.Builder captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-//            captureBuilder.addTarget(mImageReader.getSurface());
-//
-//            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-//
-//            int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
-//            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
-//
-//
-//            Log.e("FACE ORIENTATION", getOrientation(rotation) + "," + mSensorOrientation);
-//
-//            CameraCaptureSession.CaptureCallback CaptureCallback = new CameraCaptureSession.CaptureCallback() {
-//
-//                @Override
-//                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
-//                                               @NonNull CaptureRequest request,
-//                                               @NonNull TotalCaptureResult result) {
-//                    unlockFocus();
-//                }
-//            };
-//
-//            mCaptureSession.stopRepeating();
-//            mCaptureSession.abortCaptures();
-//            mCaptureSession.capture(captureBuilder.build(), CaptureCallback, null);
-//        } catch (CameraAccessException e) {
+    private void lockFocus() {
+        try {
+            // This is how to tell the camera to lock focus.
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+            // Tell #mCaptureCallback to wait for the lock.
+            mState = STATE_WAITING_LOCK;
+            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
 //            e.printStackTrace();
-//        }
-//    }
-//
-//    private int getOrientation(int rotation) {
-//        return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
-//    }
-//
-//    private void unlockFocus() {
-//        try {
-//            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
-//            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
-//            mState = STATE_PREVIEW;
-//            mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
-//                    mBackgroundHandler);
-//        } catch (CameraAccessException e) {
-//            e.printStackTrace();
-//        }
-//    }
+        }
+    }
+
+    private void captureStillPicture() {
+        try {
+            if (mCameraDevice == null)
+                return;
+
+            final CaptureRequest.Builder captureBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureBuilder.addTarget(mImageReader.getSurface());
+
+            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
+            int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
+
+
+            Log.e("FACE ORIENTATION", getOrientation(rotation) + "," + mSensorOrientation);
+
+            CameraCaptureSession.CaptureCallback CaptureCallback = new CameraCaptureSession.CaptureCallback() {
+
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+                                               @NonNull CaptureRequest request,
+                                               @NonNull TotalCaptureResult result) {
+                    unlockFocus();
+                }
+            };
+
+            mCaptureSession.stopRepeating();
+            mCaptureSession.abortCaptures();
+            mCaptureSession.capture(captureBuilder.build(), CaptureCallback, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private int getOrientation(int rotation) {
+        return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
+    }
+
+    private void unlockFocus() {
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+            mState = STATE_PREVIEW;
+            mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void runPrecaptureSequence() {
+        try {
+            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+            mState = STATE_WAITING_PRECAPTURE;
+            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
 
     private boolean requiresDimensionSwap() {
         switch (mDisplayOrientation) {
@@ -551,6 +653,10 @@ public class CameraUtil {
         }
     }
 
+    public void updateView(View view) {
+        mView = view;
+    }
+
     static class CompareSizesByArea implements Comparator<Size> {
 
         @Override
@@ -561,4 +667,51 @@ public class CameraUtil {
         }
 
     }
+
+
+    public static Bitmap rotateBitmap(Bitmap bitmap, int orientation) {
+
+        Matrix matrix = new Matrix();
+        matrix.setRotate(orientation);
+        try {
+            Bitmap bmRotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+//            bitmap.recycle();
+            return bmRotated;
+        } catch (OutOfMemoryError e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static Bitmap getResizedBitmap(Bitmap image, int maxSize) {
+        int width = image.getWidth();
+        int height = image.getHeight();  // image.getHeight()
+
+        float bitmapRatio = (float) width / (float) height;
+        if (bitmapRatio > 1) {
+            width = maxSize;
+            height = (int) (width / bitmapRatio);
+        } else {
+            height = maxSize;
+            width = (int) (height * bitmapRatio);
+        }
+        return Bitmap.createScaledBitmap(image, width, height, true);
+    }
+
+    public void shootSound() {
+        MediaActionSound sound = new MediaActionSound();
+        sound.play(MediaActionSound.SHUTTER_CLICK);
+    }
+
+    public static String convertImageToStringForServer(Bitmap imageBitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        if (imageBitmap != null) {
+            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream);
+            byte[] byteArray = stream.toByteArray();
+            return Base64.encodeToString(byteArray, Base64.DEFAULT);
+        } else {
+            return null;
+        }
+    }
+
 }
