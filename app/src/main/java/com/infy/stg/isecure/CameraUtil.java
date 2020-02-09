@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -310,6 +311,7 @@ public class CameraUtil {
     private int mState;
     private Bitmap mCapturedBitmap;
     private View mView;
+    private Integer mCardHeight;
 
 
     public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, CardView cardView, View view) {
@@ -400,19 +402,33 @@ public class CameraUtil {
         mCameraView.setTransform(matrix);
     }
 
+    public int getActionBarHeight() {
+        final TypedArray ta = mActivity.getTheme().obtainStyledAttributes(
+                new int[]{android.R.attr.actionBarSize});
+        int actionBarHeight = (int) ta.getDimensionPixelOffset(0, 0) + (int) ta.getDimensionPixelSize(0, 0);
+        return actionBarHeight;
+    }
 
     private void setupOverlay() {
         if (mOverlayView != null) {
 
-            ViewGroup.LayoutParams params = mCardView.getLayoutParams();
-            params.height = mOverlayView.getHeight();
-            mCardView.setLayoutParams(params);
-            params = mOverlayView.getLayoutParams();
+
+            ViewGroup.LayoutParams params = mOverlayView.getLayoutParams();
             params.width = mPreviewSize.getHeight();
+            int height = params.height;
             params.height = mPreviewSize.getWidth();
+            height = params.height - height;
             mOverlayView.setLayoutParams(params);
             mOverlayView.setVisibility(View.VISIBLE);
             mOverlayView.updateSize(mOverlaySize);
+
+            if(mCardHeight == null)
+                mCardHeight = height;
+
+            params = mCardView.getLayoutParams();
+            params.height = mCardHeight + getActionBarHeight();
+            mCardView.setLayoutParams(params);
+
         }
     }
 
