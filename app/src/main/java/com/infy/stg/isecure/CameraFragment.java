@@ -63,7 +63,7 @@ public class CameraFragment extends Fragment {
             mCameraDevice = cameraDevice;
             if (mCameraUtil != null)
                 mCameraUtil.updateCameraDevice(cameraDevice);
-                mCameraUtil.createPreviewSession(camera_view, mCaptureCallback, mBackgroundHandler);
+            mCameraUtil.createPreviewSession(camera_view, mCaptureCallback, mBackgroundHandler);
         }
 
         @Override
@@ -112,7 +112,7 @@ public class CameraFragment extends Fragment {
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         camera_view = getActivity().findViewById(R.id.camera_view);
-        mCameraUtil = new CameraUtil(getActivity());
+        mCameraUtil = new CameraUtil(getActivity(), camera_view);
     }
 
     public void onButtonPressed(Uri uri) {
@@ -149,7 +149,7 @@ public class CameraFragment extends Fragment {
         startBackgroundThread();
 
         if (camera_view.isAvailable()) {
-            mCameraUtil = new CameraUtil(getActivity());
+            mCameraUtil = new CameraUtil(getActivity(), camera_view);
             openCamera(camera_view.getWidth(), camera_view.getHeight());
         } else {
             camera_view.setSurfaceTextureListener(mSurfaceTextureListener);
@@ -201,7 +201,7 @@ public class CameraFragment extends Fragment {
 //            return;
 //        }
 
-        mCameraUtil.setupCamera(camera_view, width, height);
+        mCameraUtil.setupCamera(width, height);
         mCameraUtil.configTransform(camera_view, width, height);
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
