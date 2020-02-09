@@ -111,10 +111,6 @@ public class CameraUtil {
     }
 
     public void configTransform(CameraView cameraView, int viewWidth, int viewHeight) {
-//        if (null == cameraView || null == mPreviewSize || null == activity) {
-//            return;
-//        }
-
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
         Matrix matrix = new Matrix();
         RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
@@ -193,16 +189,8 @@ public class CameraUtil {
     }
 
     public void openCamera(CameraDevice.StateCallback mStateCallback, Handler mBackgroundHandler) throws CameraAccessException {
-        if (activity.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    Activity#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for Activity#requestPermissions for more details.
+        if (activity.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
             return;
-        }
         manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
     }
 
