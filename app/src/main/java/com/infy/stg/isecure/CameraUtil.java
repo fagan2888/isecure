@@ -37,6 +37,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -88,7 +89,6 @@ public class CameraUtil {
     private static final int STATE_WAITING_PRECAPTURE = 2;
     private static final int STATE_WAITING_NON_PRECAPTURE = 3;
     private static final int STATE_PICTURE_TAKEN = 4;
-    private final CardView mCardView;
 
     private FaceDetector detector;
 
@@ -262,7 +262,7 @@ public class CameraUtil {
                     bmp = rotateBitmap(bmp, mSensorOrientation);
 //                    mCapturedBitmap = FaceRecognizer.cropFace(detector, bmp);
 
-
+                    ((ImageView)mView.findViewById(R.id.imageView)).setImageBitmap(bmp);
                     ByteArrayOutputStream stream = new ByteArrayOutputStream();
                     bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
                     byte[] byteArray = stream.toByteArray();
@@ -314,12 +314,11 @@ public class CameraUtil {
     private Integer mCardHeight;
 
 
-    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, CardView cardView, View view) {
+    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, View view) {
         mActivity = activity;
         mCameraView = cameraView;
         mOverlayView = overlayView;
         mView = view;
-        mCardView = cardView;
         init();
     }
 
@@ -425,9 +424,13 @@ public class CameraUtil {
             if(mCardHeight == null)
                 mCardHeight = height;
 
+
+            View mCardView = mView.findViewById(R.id.card);
             params = mCardView.getLayoutParams();
             params.height = mCardHeight + getActionBarHeight();
             mCardView.setLayoutParams(params);
+            mCardView.invalidate();
+            mCardView.requestLayout();
 
         }
     }

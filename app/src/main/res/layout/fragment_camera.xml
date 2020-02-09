@@ -2,11 +2,11 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0C0024"
-    tools:context=".CameraFragment"
-    android:id="@+id/container">
+    tools:context=".CameraFragment">
 
     <FrameLayout
         android:id="@+id/frame"
@@ -44,6 +44,7 @@
             android:layout_height="60dp"
             android:layout_gravity="center"
             android:layout_marginBottom="10dp"
+            android:longClickable="true"
             android:background="@drawable/button_bg_round_disabled"
             android:padding="15dp" />
 
@@ -51,6 +52,12 @@
             android:id="@+id/card"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
+
+            <include
+                layout="@layout/yourlayout"
+                android:layout_gravity="top"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
 
 
         </androidx.cardview.widget.CardView>
