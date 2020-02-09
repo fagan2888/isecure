@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.hardware.camera2.params.Face;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.Size;
 import android.view.MotionEvent;
 import android.view.View;
@@ -16,6 +17,8 @@ import java.util.Arrays;
 
 public class OverlayView extends View {
 
+
+    private static final String TAG = OverlayView.class.getName();
     private Size size;
     private Float yScale;
     private Float xScale;
@@ -49,6 +52,7 @@ public class OverlayView extends View {
 
     @Override
     public void onDraw(Canvas canvas) {
+//        canvas.drawLine(0, 0, getWidth(), getHeight(), paint);
 
         if (size != null) {
             xScale = getHeight() / (float) size.getWidth();
@@ -65,6 +69,8 @@ public class OverlayView extends View {
     }
 
     public void drawBounds(Face face, Canvas canvas) {
+//        Log.d(TAG, "DRAW BOUNDS");
+
         if (face == null) {
             return;
         }
@@ -73,6 +79,7 @@ public class OverlayView extends View {
     }
 
     private void drawFaceCenter(Face face, Canvas canvas) {
+//        Log.d(TAG, "DRAW CENTER");
 
         int x = face.getBounds().centerX();
         int y = face.getBounds().centerY();
