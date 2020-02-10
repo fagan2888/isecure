@@ -75,7 +75,6 @@ public class CameraUtil {
     private static final int MAX_PREVIEW_WIDTH = 1920;
     private static final int MAX_PREVIEW_HEIGHT = 1080;
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
-    public static final String URL = "http://192.168.1.101:5000/id";
 
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
@@ -262,7 +261,7 @@ public class CameraUtil {
                     bmp = rotateBitmap(bmp, mSensorOrientation);
 //                    mCapturedBitmap = FaceRecognizer.cropFace(detector, bmp);
 
-                    APIClient.verify(mActivity, bmp);
+                    APIClient.verify(mActivity, mView, bmp);
 
 //                    ((ImageView)mView.findViewById(R.id.imageView)).setImageBitmap(bmp);
 //                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -423,7 +422,7 @@ public class CameraUtil {
             mOverlayView.setVisibility(View.VISIBLE);
             mOverlayView.updateSize(mOverlaySize);
 
-            if(mCardHeight == null)
+            if (mCardHeight == null)
                 mCardHeight = height;
 
 

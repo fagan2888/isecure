@@ -32,22 +32,28 @@ import okhttp3.logging.HttpLoggingInterceptor;
 
 public class APIClient {
 
+    private static final String TAG = APIClient.class.getName();
     public static String URL_VERIFY = "";
     public static String URL_ENCODE = "";
 
+    public static Bitmap bitmap;
 
-    public static void verify(Activity activity, Bitmap bitmap) {
-        String json = "{\"image\":\"" + convertImageToStringForServer(bitmap) + "\"}";
+
+    public static void verify(Activity activity, View view, Bitmap bitmap) {
+        APIClient.bitmap = bitmap;
+        String img = convertImageToStringForServer(bitmap);
+        Log.d(TAG, img);
+        String json = String.format("{\"image\":\"%s\"}", img);
 
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
 
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
 
-        RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
 
         Request request = new Request.Builder()
-                .url(URL_VERIFY + "/users/detail")
+                .url(URL_VERIFY)
                 .post(body)
                 .build();
 
@@ -59,31 +65,88 @@ public class APIClient {
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body().string();
+                Log.d(TAG, json);
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        activity.findViewById(R.id.include).setVisibility(View.VISIBLE);
+                        view.findViewById(R.id.include).setVisibility(View.VISIBLE);
                         try {
-                            Map<String, Object> map = jsonString2Map(response.body().toString());
-                            ((ImageView) activity.findViewById(R.id.imageView)).setImageBitmap(bitmap);
+                            Map<String, Object> map = jsonString2Map(json);
+                            Log.d(TAG, map.toString());
+                            ((ImageView) view.findViewById(R.id.imageView)).setImageBitmap(bitmap);
                             String identity = (String) map.get("identity");
                             if (identity.contains("not-found")) {
-                                activity.findViewById(R.id.floatingActionButton).setVisibility(View.VISIBLE);
-                                ((TextView) activity.findViewById(R.id.textView)).setText("-");
-                                ((TextView) activity.findViewById(R.id.textView2)).setText("-");
+                                view.findViewById(R.id.floatingActionButton).setVisibility(View.VISIBLE);
+                                ((TextView) view.findViewById(R.id.textView)).setText("-");
+                                ((TextView) view.findViewById(R.id.textView2)).setText("-");
                             } else {
-                                activity.findViewById(R.id.floatingActionButton).setVisibility(View.INVISIBLE);
-                                ((TextView) activity.findViewById(R.id.textView)).setText(identity);
-                                ((TextView) activity.findViewById(R.id.textView2)).setText(String.format("%06d", 700000 + new Random().nextInt(99999)));
+                                view.findViewById(R.id.floatingActionButton).setVisibility(View.INVISIBLE);
+                                ((TextView) view.findViewById(R.id.textView)).setText("Employee #");
+                                ((TextView) view.findViewById(R.id.textView2)).setText(identity);
                             }
-                            ((TextView) activity.findViewById(R.id.textView)).setText(identity);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
                     }
                 });
+            }
+        });
 
+//        assertThat(response.code(), equalTo(200));
 
+    }
+
+    public static void encode(Activity activity, View view, String id) {
+        String img = convertImageToStringForServer(bitmap);
+        Log.d(TAG, img);
+        String json = String.format("{\"image\":\"%s\", \"emp_id\":\"%s\"}", img, id.trim());
+
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
+
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
+
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
+
+        Request request = new Request.Builder()
+                .url(URL_ENCODE)
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String json = response.body().string();
+                Log.d(TAG, json);
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        view.findViewById(R.id.include).setVisibility(View.VISIBLE);
+                        try {
+                            Map<String, Object> map = jsonString2Map(json);
+                            Log.d(TAG, map.toString());
+                            ((ImageView) view.findViewById(R.id.imageView)).setImageBitmap(bitmap);
+                            String identity = (String) map.get("identity");
+                            if (!identity.contains("saved")) {
+                                view.findViewById(R.id.floatingActionButton).setVisibility(View.VISIBLE);
+                                ((TextView) view.findViewById(R.id.textView)).setText("-");
+                                ((TextView) view.findViewById(R.id.textView2)).setText("-");
+                            } else {
+                                view.findViewById(R.id.floatingActionButton).setVisibility(View.INVISIBLE);
+                                ((TextView) view.findViewById(R.id.textView)).setText("Employee #");
+                                ((TextView) view.findViewById(R.id.textView2)).setText(identity);
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
             }
         });
 
@@ -94,9 +157,9 @@ public class APIClient {
     public static String convertImageToStringForServer(Bitmap imageBitmap) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         if (imageBitmap != null) {
-            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream);
+            imageBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
             byte[] byteArray = stream.toByteArray();
-            return Base64.encodeToString(byteArray, Base64.DEFAULT);
+            return Base64.encodeToString(byteArray, Base64.DEFAULT).replaceAll("\\s", "");
         } else {
             return null;
         }

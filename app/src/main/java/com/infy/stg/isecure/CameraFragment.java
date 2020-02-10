@@ -52,15 +52,15 @@ public class CameraFragment extends Fragment {
         sharedPref = getActivity().getPreferences(Context.MODE_PRIVATE);
         editor = sharedPref.edit();
 
-        verifyIP = sharedPref.getString("verify", "http://192.168.1.101/id");
-        encodeIP = sharedPref.getString("encode", "http://192.168.1.101/id");
-
+        APIClient.URL_VERIFY = sharedPref.getString("verify", "http://192.168.1.101:5000/id");
+        APIClient.URL_ENCODE = sharedPref.getString("encode", "http://192.168.1.101:5000/id");
 
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
         view.findViewById(R.id.push_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -76,14 +76,18 @@ public class CameraFragment extends Fragment {
                 // Get the layout inflater
                 LayoutInflater inflater = requireActivity().getLayoutInflater();
 
+                View inflate = inflater.inflate(R.layout.dialog_input_id, null);
+
+                final EditText emp_id = inflate.findViewById(R.id.emp_id);
+
                 // Inflate and set the layout for the dialog
                 // Pass null as the parent view because its going in the dialog layout
-                builder.setView(inflater.inflate(R.layout.dialog_input_id, null))
+                builder.setView(inflate)
                         // Add action buttons
                         .setPositiveButton("Done", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int id) {
-
+                                APIClient.encode(getActivity(), getView(), emp_id.getText().toString());
                             }
                         })
                         .setNegativeButton("Cancel", null);
@@ -100,18 +104,27 @@ public class CameraFragment extends Fragment {
                 // Get the layout inflater
                 LayoutInflater inflater = requireActivity().getLayoutInflater();
 
+                View inflate = inflater.inflate(R.layout.dialog_input_ip, null);
+
+                final EditText ip_verify = inflate.findViewById(R.id.ip_verify);
+                final EditText ip_encode = inflate.findViewById(R.id.ip_encode);
+
+                ip_verify.setText(sharedPref.getString("verify", "http://192.168.1.101:5000/verify"));
+                ip_encode.setText(sharedPref.getString("encode", "http://192.168.1.101:5000/encode"));
+
                 // Inflate and set the layout for the dialog
                 // Pass null as the parent view because its going in the dialog layout
-                builder.setView(inflater.inflate(R.layout.dialog_input_ip, null))
+                builder.setView(inflate)
                         // Add action buttons
                         .setPositiveButton("Done", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int id) {
-                                editor.putString("verify", ((EditText) view.findViewById(R.id.ip_verify)).getText().toString());
-                                editor.putString("encode", ((EditText) view.findViewById(R.id.ip_encode)).getText().toString());
+
+                                editor.putString("verify", ip_verify.getText().toString());
+                                editor.putString("encode", ip_encode.getText().toString());
                                 editor.commit();
-                                verifyIP = sharedPref.getString("verify", "http://192.168.1.101/verify");
-                                encodeIP = sharedPref.getString("encode", "http://192.168.1.101/encode");
+                                APIClient.URL_VERIFY = sharedPref.getString("verify", "http://192.168.1.101:5000/verify");
+                                APIClient.URL_ENCODE = sharedPref.getString("encode", "http://192.168.1.101:5000/encode");
                             }
                         })
                         .setNegativeButton("Cancel", null);
