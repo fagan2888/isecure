@@ -2,20 +2,24 @@ package com.infy.stg.isecure;
 
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.SharedPreferences;
+import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+
+import java.util.Objects;
 
 public class CameraFragment extends Fragment {
 
@@ -23,10 +27,7 @@ public class CameraFragment extends Fragment {
 
     private OnFragmentInteractionListener mListener;
     private CameraUtil mCameraUtil;
-    private String verifyIP;
-    private String encodeIP;
-    private SharedPreferences.Editor editor;
-    private SharedPreferences sharedPref;
+
 
     public CameraFragment() {
     }
@@ -48,12 +49,37 @@ public class CameraFragment extends Fragment {
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mCameraUtil = new CameraUtil(getActivity(), getView().findViewById(R.id.camera_view), getView().findViewById(R.id.overlay_view), getView());
-        sharedPref = getActivity().getPreferences(Context.MODE_PRIVATE);
-        editor = sharedPref.edit();
+        mCameraUtil = new CameraUtil(getActivity(), Objects.requireNonNull(getView()).findViewById(R.id.camera_view), getView().findViewById(R.id.overlay_view),
+                new CameraUtil.FaceDetectionCallback() {
+                    @Override
+                    public void onFace(boolean detected) {
+                        if (detected)
+                            getView().findViewById(R.id.btn_verify).setBackground(ContextCompat.getDrawable(getActivity().getApplicationContext(), R.drawable.button_bg_round_enabled));
+                        else
+                            getView().findViewById(R.id.btn_verify).setBackground(ContextCompat.getDrawable(getActivity().getApplicationContext(), R.drawable.button_bg_round_disabled));
+                    }
+                }, new CameraUtil.FaceCaptureCallback() {
+            @Override
+            public void onFaceCaptured(byte[] bytes, int orientation) {
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+                bitmap = This.UTIL.getResizedBitmap(bitmap, 1024);
+                bitmap = This.UTIL.rotateBitmap(bitmap, orientation);
+                APIClient.verify(getActivity(), getView(), bitmap);
 
-        APIClient.URL_VERIFY = sharedPref.getString("verify", "http://192.168.1.101:5000/id");
-        APIClient.URL_ENCODE = sharedPref.getString("encode", "http://192.168.1.101:5000/id");
+            }
+        }, new CameraUtil.OverlayResizeCallback() {
+            @Override
+            public void onOverlayResized(int width, int height) {
+                View view = getView().findViewById(R.id.card);
+                ViewGroup.LayoutParams params = view.getLayoutParams();
+                params.height = height + This.UTIL.getActionBarHeight() * 9 / 10;
+                view.setLayoutParams(params);
+                view.invalidate();
+                view.requestLayout();
+                view.animate().alpha(1).setDuration(2000);
+            }
+        });
+
 
     }
 
@@ -61,78 +87,10 @@ public class CameraFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        view.findViewById(R.id.push_button).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "ON CLICK");
-                mCameraUtil.clickPicture();
-            }
-        });
-        view.findViewById(R.id.floatingActionButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "ON CLICK");
-                AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-                // Get the layout inflater
-                LayoutInflater inflater = requireActivity().getLayoutInflater();
+        view.findViewById(R.id.btn_verify).setOnClickListener(v -> mCameraUtil.clickPicture());
 
-                View inflate = inflater.inflate(R.layout.dialog_input_id, null);
-
-                final EditText emp_id = inflate.findViewById(R.id.emp_id);
-
-                // Inflate and set the layout for the dialog
-                // Pass null as the parent view because its going in the dialog layout
-                builder.setView(inflate)
-                        // Add action buttons
-                        .setPositiveButton("Done", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int id) {
-                                APIClient.encode(getActivity(), getView(), emp_id.getText().toString());
-                            }
-                        })
-                        .setNegativeButton("Cancel", null);
-                AlertDialog alertDialog = builder.create();
-                alertDialog.show();
-            }
-        });
-
-        view.findViewById(R.id.push_button).setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View view) {
-                Log.d(TAG, "ON LONG CLICK");
-                AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-                // Get the layout inflater
-                LayoutInflater inflater = requireActivity().getLayoutInflater();
-
-                View inflate = inflater.inflate(R.layout.dialog_input_ip, null);
-
-                final EditText ip_verify = inflate.findViewById(R.id.ip_verify);
-                final EditText ip_encode = inflate.findViewById(R.id.ip_encode);
-
-                ip_verify.setText(sharedPref.getString("verify", "http://192.168.1.101:5000/verify"));
-                ip_encode.setText(sharedPref.getString("encode", "http://192.168.1.101:5000/encode"));
-
-                // Inflate and set the layout for the dialog
-                // Pass null as the parent view because its going in the dialog layout
-                builder.setView(inflate)
-                        // Add action buttons
-                        .setPositiveButton("Done", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int id) {
-
-                                editor.putString("verify", ip_verify.getText().toString());
-                                editor.putString("encode", ip_encode.getText().toString());
-                                editor.commit();
-                                APIClient.URL_VERIFY = sharedPref.getString("verify", "http://192.168.1.101:5000/verify");
-                                APIClient.URL_ENCODE = sharedPref.getString("encode", "http://192.168.1.101:5000/encode");
-                            }
-                        })
-                        .setNegativeButton("Cancel", null);
-                AlertDialog alertDialog = builder.create();
-                alertDialog.show();
-                return false;
-            }
-        });
+        This.DIALOGS.SETUP_BASE_URL_UPDATER(view.findViewById(R.id.btn_verify), getActivity(), requireActivity(), view);
+        This.DIALOGS.SETUP_EMP_REG_INPUT(view.findViewById(R.id.btn_register), getActivity(), requireActivity(), view);
     }
 
     public void onButtonPressed(Uri uri) {
@@ -172,4 +130,6 @@ public class CameraFragment extends Fragment {
         super.onPause();
         mCameraUtil.pause();
     }
+
+
 }

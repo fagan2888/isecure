@@ -30,6 +30,7 @@
     </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -39,7 +40,7 @@
         app:layout_constraintTop_toBottomOf="@id/frame">
 
         <Button
-            android:id="@+id/push_button"
+            android:id="@+id/btn_verify"
             android:layout_width="60dp"
             android:layout_height="60dp"
             android:layout_gravity="center"
@@ -51,14 +52,15 @@
         <androidx.cardview.widget.CardView
             android:id="@+id/card"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:alpha="0">
 
             <include
                 android:id="@+id/include"
-                layout="@layout/yourlayout"
+                layout="@layout/layout_face_details"
                 android:layout_gravity="top"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
+                android:layout_height="match_parent" />
 
 
         </androidx.cardview.widget.CardView>

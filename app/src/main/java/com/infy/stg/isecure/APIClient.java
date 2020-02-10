@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -33,8 +32,6 @@ import okhttp3.logging.HttpLoggingInterceptor;
 public class APIClient {
 
     private static final String TAG = APIClient.class.getName();
-    public static String URL_VERIFY = "";
-    public static String URL_ENCODE = "";
 
     public static Bitmap bitmap;
 
@@ -53,7 +50,7 @@ public class APIClient {
         RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
 
         Request request = new Request.Builder()
-                .url(URL_VERIFY)
+                .url(This.API_URL.URL_BASE + This.API_URL.PATH_VERIFY)
                 .post(body)
                 .build();
 
@@ -77,11 +74,11 @@ public class APIClient {
                             ((ImageView) view.findViewById(R.id.imageView)).setImageBitmap(bitmap);
                             String identity = (String) map.get("identity");
                             if (identity.contains("not-found")) {
-                                view.findViewById(R.id.floatingActionButton).setVisibility(View.VISIBLE);
+                                view.findViewById(R.id.btn_register).setVisibility(View.VISIBLE);
                                 ((TextView) view.findViewById(R.id.textView)).setText("-");
                                 ((TextView) view.findViewById(R.id.textView2)).setText("-");
                             } else {
-                                view.findViewById(R.id.floatingActionButton).setVisibility(View.INVISIBLE);
+                                view.findViewById(R.id.btn_register).setVisibility(View.INVISIBLE);
                                 ((TextView) view.findViewById(R.id.textView)).setText("Employee #");
                                 ((TextView) view.findViewById(R.id.textView2)).setText(identity);
                             }
@@ -92,8 +89,6 @@ public class APIClient {
                 });
             }
         });
-
-//        assertThat(response.code(), equalTo(200));
 
     }
 
@@ -110,7 +105,7 @@ public class APIClient {
         RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
 
         Request request = new Request.Builder()
-                .url(URL_ENCODE)
+                .url(This.API_URL.URL_BASE + This.API_URL.PATH_ENCODE)
                 .post(body)
                 .build();
 
@@ -134,11 +129,11 @@ public class APIClient {
                             ((ImageView) view.findViewById(R.id.imageView)).setImageBitmap(bitmap);
                             String identity = (String) map.get("identity");
                             if (!identity.contains("saved")) {
-                                view.findViewById(R.id.floatingActionButton).setVisibility(View.VISIBLE);
+                                view.findViewById(R.id.btn_register).setVisibility(View.VISIBLE);
                                 ((TextView) view.findViewById(R.id.textView)).setText("-");
                                 ((TextView) view.findViewById(R.id.textView2)).setText("-");
                             } else {
-                                view.findViewById(R.id.floatingActionButton).setVisibility(View.INVISIBLE);
+                                view.findViewById(R.id.btn_register).setVisibility(View.INVISIBLE);
                                 ((TextView) view.findViewById(R.id.textView)).setText("Employee #");
                                 ((TextView) view.findViewById(R.id.textView2)).setText(identity);
                             }

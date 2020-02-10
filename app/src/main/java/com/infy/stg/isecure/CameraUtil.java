@@ -37,17 +37,14 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
-import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.gms.vision.face.FaceDetector;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,17 +53,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.FormBody;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-import okhttp3.logging.HttpLoggingInterceptor;
 
 public class CameraUtil {
 
@@ -89,11 +75,12 @@ public class CameraUtil {
     private static final int STATE_WAITING_NON_PRECAPTURE = 3;
     private static final int STATE_PICTURE_TAKEN = 4;
 
-    private FaceDetector detector;
-
     private final Activity mActivity;
     private final CameraView mCameraView;
     private final OverlayView mOverlayView;
+    private final FaceDetectionCallback faceDetectionCallback;
+    private final FaceCaptureCallback faceCaptureCallback;
+    private OverlayResizeCallback overlayResizeCallback;
 
     private CameraManager mCameraManager;
     private String mCameraId;
@@ -154,16 +141,7 @@ public class CameraUtil {
                     Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
                     if (faces != null && mode != null) {
                         mOverlayView.updateFace(faces);
-                        mActivity.runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (mView != null)
-                                    if (mOverlayView.isCapturePossible())
-                                        mView.findViewById(R.id.push_button).setBackground(ContextCompat.getDrawable(mActivity.getApplicationContext(), R.drawable.button_bg_round_enabled));
-                                    else
-                                        mView.findViewById(R.id.push_button).setBackground(ContextCompat.getDrawable(mActivity.getApplicationContext(), R.drawable.button_bg_round_disabled));
-                            }
-                        });
+                        faceDetectionCallback.onFace(mOverlayView.isCapturePossible());
                     }
                     break;
                 }
@@ -256,49 +234,7 @@ public class CameraUtil {
                     ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
                     byte[] bytes = new byte[buffer.remaining()];
                     buffer.get(bytes);
-                    Bitmap bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
-                    bmp = getResizedBitmap(bmp, 1024);
-                    bmp = rotateBitmap(bmp, mSensorOrientation);
-//                    mCapturedBitmap = FaceRecognizer.cropFace(detector, bmp);
-
-                    APIClient.verify(mActivity, mView, bmp);
-
-//                    ((ImageView)mView.findViewById(R.id.imageView)).setImageBitmap(bmp);
-//                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-//                    bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
-//                    byte[] byteArray = stream.toByteArray();
-//                    String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
-//
-//                    HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-//                    logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
-//
-//                    OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
-//
-////                    RequestBody requestBody = new MultipartBody.Builder()
-////                            .setType(MultipartBody.FORM)
-////                            .addFormDataPart("", "",
-////                                    RequestBody.create(MediaType.parse("image/*"), encodedImage))
-////                            .build();
-//
-//                    RequestBody requestBody = RequestBody
-//                            .create(MediaType.parse("application/octet-stream"), byteArray);
-//
-//                    Request request = new Request.Builder()
-//                            .url(URL)
-//                            .post(requestBody)
-//                            .build();
-//
-//                    client.newCall(request).enqueue(new Callback() {
-//                        @Override
-//                        public void onFailure(Call call, IOException e) {
-//
-//                        }
-//
-//                        @Override
-//                        public void onResponse(Call call, Response response) throws IOException {
-//                            Log.d(TAG, response.body().string());
-//                        }
-//                    });
+                    faceCaptureCallback.onFaceCaptured(bytes, mSensorOrientation);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -310,27 +246,21 @@ public class CameraUtil {
     };
 
     private int mState;
-    private Bitmap mCapturedBitmap;
-    private View mView;
     private Integer mCardHeight;
 
 
-    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, View view) {
+    public CameraUtil(Activity activity, CameraView cameraView, OverlayView overlayView, FaceDetectionCallback faceDetectionCallback, FaceCaptureCallback faceCaptureCallback, OverlayResizeCallback overlayResizeCallback) {
         mActivity = activity;
         mCameraView = cameraView;
         mOverlayView = overlayView;
-        mView = view;
+        this.faceDetectionCallback = faceDetectionCallback;
+        this.faceCaptureCallback = faceCaptureCallback;
+        this.overlayResizeCallback = overlayResizeCallback;
         init();
     }
 
     private void init() {
         mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
-        detector = new FaceDetector.Builder(mActivity.getApplicationContext())
-                .setTrackingEnabled(false)
-                .setLandmarkType(FaceDetector.ALL_LANDMARKS)
-                .setMode(FaceDetector.FAST_MODE)
-                .build();
-
         try {
             for (String cameraId : mCameraManager.getCameraIdList()) {
                 mCameraId = cameraId;
@@ -402,37 +332,18 @@ public class CameraUtil {
         mCameraView.setTransform(matrix);
     }
 
-    public int getActionBarHeight() {
-        final TypedArray ta = mActivity.getTheme().obtainStyledAttributes(
-                new int[]{android.R.attr.actionBarSize});
-        int actionBarHeight = (int) ta.getDimensionPixelOffset(0, 0) + (int) ta.getDimensionPixelSize(0, 0);
-        return actionBarHeight;
-    }
-
     private void setupOverlay() {
         if (mOverlayView != null) {
 
 
             ViewGroup.LayoutParams params = mOverlayView.getLayoutParams();
             params.width = mPreviewSize.getHeight();
-            int height = params.height;
             params.height = mPreviewSize.getWidth();
-            height = params.height - height;
             mOverlayView.setLayoutParams(params);
             mOverlayView.setVisibility(View.VISIBLE);
             mOverlayView.updateSize(mOverlaySize);
-
-            if (mCardHeight == null)
-                mCardHeight = height;
-
-
-            View mCardView = mView.findViewById(R.id.card);
-            params = mCardView.getLayoutParams();
-            params.height = mCardHeight + getActionBarHeight();
-            mCardView.setLayoutParams(params);
-            mCardView.invalidate();
-            mCardView.requestLayout();
-
+            mOverlayView.requestLayout();
+            overlayResizeCallback.onOverlayResized(params.width, params.height);
         }
     }
 
@@ -673,10 +584,6 @@ public class CameraUtil {
         }
     }
 
-    public void updateView(View view) {
-        mView = view;
-    }
-
     static class CompareSizesByArea implements Comparator<Size> {
 
         @Override
@@ -689,49 +596,23 @@ public class CameraUtil {
     }
 
 
-    public static Bitmap rotateBitmap(Bitmap bitmap, int orientation) {
 
-        Matrix matrix = new Matrix();
-        matrix.setRotate(orientation);
-        try {
-            Bitmap bmRotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-//            bitmap.recycle();
-            return bmRotated;
-        } catch (OutOfMemoryError e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public static Bitmap getResizedBitmap(Bitmap image, int maxSize) {
-        int width = image.getWidth();
-        int height = image.getHeight();  // image.getHeight()
-
-        float bitmapRatio = (float) width / (float) height;
-        if (bitmapRatio > 1) {
-            width = maxSize;
-            height = (int) (width / bitmapRatio);
-        } else {
-            height = maxSize;
-            width = (int) (height * bitmapRatio);
-        }
-        return Bitmap.createScaledBitmap(image, width, height, true);
-    }
 
     public void shootSound() {
         MediaActionSound sound = new MediaActionSound();
         sound.play(MediaActionSound.SHUTTER_CLICK);
     }
 
-    public static String convertImageToStringForServer(Bitmap imageBitmap) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        if (imageBitmap != null) {
-            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream);
-            byte[] byteArray = stream.toByteArray();
-            return Base64.encodeToString(byteArray, Base64.DEFAULT);
-        } else {
-            return null;
-        }
+    public interface FaceDetectionCallback {
+        void onFace(boolean detected);
+    }
+
+    public interface FaceCaptureCallback {
+        void onFaceCaptured(byte[] bytes, int orientation);
+    }
+
+    public interface OverlayResizeCallback {
+        void onOverlayResized(int width, int Height);
     }
 
 }
