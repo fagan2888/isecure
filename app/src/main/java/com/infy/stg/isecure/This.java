@@ -6,23 +6,37 @@ import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentActivity;
 
-import com.google.android.material.textfield.TextInputLayout;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-import java.util.EventListener;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+
+import okhttp3.Response;
 
 public class This {
 
     public static Context CONTEXT = null;
 
     public static SharedPreferences SHARED_PREFS;
+    public static Bitmap WORKING_IMAGE;
 
     public static final class API_URL {
 
@@ -32,33 +46,9 @@ public class This {
     }
 
     public static final class DIALOGS {
-        public static void SETUP_BASE_URL_UPDATER(View button, Activity activity, FragmentActivity fragmentActivity, View view) {
-            button.setOnLongClickListener(view1 -> {
-                AlertDialog.Builder builder = new AlertDialog.Builder(Objects.requireNonNull(activity));
-                View inflate = fragmentActivity.getLayoutInflater().inflate(R.layout.dialog_input_base_url, null);
-                EditText ip_verify = inflate.findViewById(R.id.base_url);
-                ip_verify.setText(This.API_URL.URL_BASE);
-                builder.setView(inflate)
-                        .setPositiveButton("Ok", (dialog, id) -> This.SHARED_PREFS.edit()
-                                .putString("BASE_URL", This.API_URL.URL_BASE = ip_verify.getText()
-                                        .toString()).apply())
-                        .setNegativeButton("Cancel", null).create().show();
-                return false;
-            });
-        }
 
-        public static void SETUP_EMP_REG_INPUT(View button, Activity activity, FragmentActivity fragmentActivity, View view) {
-            button.setOnClickListener(v -> {
-                AlertDialog.Builder builder = new AlertDialog.Builder(Objects.requireNonNull(activity));
-                View layout = fragmentActivity.getLayoutInflater().inflate(R.layout.dialog_input_employee_id, null);
-                EditText et_emp_id = layout.findViewById(R.id.et_emp_id);
-                ImageView iv_emp_face = layout.findViewById(R.id.iv_emp_face);
-                iv_emp_face.setImageBitmap(APIClient.bitmap);
-                builder.setView(layout)
-                        .setPositiveButton("Register", (dialog, id) -> APIClient.encode(activity, view, et_emp_id.getText().toString()))
-                        .setNegativeButton("Cancel", null).create().show();
-            });
-        }
+
+
     }
 
     public static final class UTIL {
@@ -96,6 +86,58 @@ public class This {
                     new int[]{android.R.attr.actionBarSize});
             int actionBarHeight = (int) ta.getDimensionPixelOffset(0, 0) + (int) ta.getDimensionPixelSize(0, 0);
             return actionBarHeight;
+        }
+
+        public static String convertImageToString(Bitmap imageBitmap) {
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            if (imageBitmap != null) {
+                imageBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                byte[] byteArray = stream.toByteArray();
+                return Base64.encodeToString(byteArray, Base64.DEFAULT).replaceAll("\\s", "");
+            } else {
+                return null;
+            }
+        }
+
+        public static Map<String, Object> jsonString2Map(String jsonString) throws JSONException {
+            Map<String, Object> keys = new HashMap<String, Object>();
+
+            org.json.JSONObject jsonObject = new org.json.JSONObject(jsonString); // HashMap
+            Iterator<?> keyset = jsonObject.keys(); // HM
+
+            while (keyset.hasNext()) {
+                String key = (String) keyset.next();
+                Object value = jsonObject.get(key);
+                System.out.print("\n Key : " + key);
+                if (value instanceof org.json.JSONObject) {
+                    System.out.println("Incomin value is of JSONObject : ");
+                    keys.put(key, jsonString2Map(value.toString()));
+                } else if (value instanceof org.json.JSONArray) {
+                    org.json.JSONArray jsonArray = jsonObject.getJSONArray(key);
+                    //JSONArray jsonArray = new JSONArray(value.toString());
+                    keys.put(key, jsonArray2List(jsonArray));
+                } else {
+                    keys.put(key, value);
+                }
+            }
+            return keys;
+        }
+
+        public static List<Object> jsonArray2List(JSONArray arrayOFKeys) throws JSONException {
+            System.out.println("Incoming value is of JSONArray : =========");
+            List<Object> array2List = new ArrayList<Object>();
+            for (int i = 0; i < arrayOFKeys.length(); i++) {
+                if (arrayOFKeys.opt(i) instanceof JSONObject) {
+                    Map<String, Object> subObj2Map = jsonString2Map(arrayOFKeys.opt(i).toString());
+                    array2List.add(subObj2Map);
+                } else if (arrayOFKeys.opt(i) instanceof JSONArray) {
+                    List<Object> subarray2List = jsonArray2List((JSONArray) arrayOFKeys.opt(i));
+                    array2List.add(subarray2List);
+                } else {
+                    array2List.add(arrayOFKeys.opt(i));
+                }
+            }
+            return array2List;
         }
 
 

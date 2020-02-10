@@ -20,7 +20,7 @@
             android:layout_weight="1">
 
             <ImageView
-                android:id="@+id/imageView"
+                android:id="@+id/iv_emp_face"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop" />
@@ -34,7 +34,7 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/textView"
+                android:id="@+id/tv_emp_id"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAlignment="center"
@@ -48,7 +48,7 @@
                 android:minHeight="10dp" />
 
             <TextView
-                android:id="@+id/textView2"
+                android:id="@+id/tv_emp_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAlignment="center"
