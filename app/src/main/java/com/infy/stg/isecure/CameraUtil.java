@@ -262,42 +262,44 @@ public class CameraUtil {
                     bmp = rotateBitmap(bmp, mSensorOrientation);
 //                    mCapturedBitmap = FaceRecognizer.cropFace(detector, bmp);
 
-                    ((ImageView)mView.findViewById(R.id.imageView)).setImageBitmap(bmp);
-                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                    bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
-                    byte[] byteArray = stream.toByteArray();
-                    String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+                    APIClient.verify(mActivity, bmp);
 
-                    HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-                    logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
-
-                    OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
-
-//                    RequestBody requestBody = new MultipartBody.Builder()
-//                            .setType(MultipartBody.FORM)
-//                            .addFormDataPart("", "",
-//                                    RequestBody.create(MediaType.parse("image/*"), encodedImage))
+//                    ((ImageView)mView.findViewById(R.id.imageView)).setImageBitmap(bmp);
+//                    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//                    bmp.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+//                    byte[] byteArray = stream.toByteArray();
+//                    String encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT);
+//
+//                    HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+//                    logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
+//
+//                    OkHttpClient client = new OkHttpClient.Builder().addInterceptor(logging).build();
+//
+////                    RequestBody requestBody = new MultipartBody.Builder()
+////                            .setType(MultipartBody.FORM)
+////                            .addFormDataPart("", "",
+////                                    RequestBody.create(MediaType.parse("image/*"), encodedImage))
+////                            .build();
+//
+//                    RequestBody requestBody = RequestBody
+//                            .create(MediaType.parse("application/octet-stream"), byteArray);
+//
+//                    Request request = new Request.Builder()
+//                            .url(URL)
+//                            .post(requestBody)
 //                            .build();
-
-                    RequestBody requestBody = RequestBody
-                            .create(MediaType.parse("application/octet-stream"), byteArray);
-
-                    Request request = new Request.Builder()
-                            .url(URL)
-                            .post(requestBody)
-                            .build();
-
-                    client.newCall(request).enqueue(new Callback() {
-                        @Override
-                        public void onFailure(Call call, IOException e) {
-
-                        }
-
-                        @Override
-                        public void onResponse(Call call, Response response) throws IOException {
-                            Log.d(TAG, response.body().string());
-                        }
-                    });
+//
+//                    client.newCall(request).enqueue(new Callback() {
+//                        @Override
+//                        public void onFailure(Call call, IOException e) {
+//
+//                        }
+//
+//                        @Override
+//                        public void onResponse(Call call, Response response) throws IOException {
+//                            Log.d(TAG, response.body().string());
+//                        }
+//                    });
 
                 } catch (Exception ex) {
                     ex.printStackTrace();
